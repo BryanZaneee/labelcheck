@@ -140,7 +140,7 @@ def create_app() -> FastAPI:
     logs.configure()
     db.init_db()
 
-    app = FastAPI(title="TTB Label Verification API")
+    app = FastAPI(title="Labelcheck API")
 
     app.add_middleware(TokenMiddleware)
     app.add_middleware(RateLimitMiddleware)

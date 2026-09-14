@@ -41,10 +41,10 @@ export function App() {
       <header className="masthead">
         <div className="masthead-inner">
           <div className="brand">
-            <div className="brand-mark">TTB</div>
+            <div className="brand-mark">LC</div>
             <div>
-              <div className="brand-name">Label Verification Service</div>
-              <div className="brand-sub">Certificate of Label Approval · Prototype</div>
+              <div className="brand-name">Labelcheck</div>
+              <div className="brand-sub">Product label compliance verification</div>
             </div>
           </div>
 

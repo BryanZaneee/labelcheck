@@ -33,7 +33,7 @@ const ACCEPTED = 'image/png,image/jpeg,image/webp'
 
 /** A part-typed application survives a reload. The image rides along as a data
     URL when it is small enough - a 12 MB photo is not worth the typed fields. */
-const DRAFT_KEY = 'ttb.label-draft'
+const DRAFT_KEY = 'labelcheck.label-draft'
 const DRAFT_IMAGE_LIMIT = 2_000_000
 
 type Draft = {

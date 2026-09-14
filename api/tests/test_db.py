@@ -176,7 +176,7 @@ def test_migration_006_upgrades_a_populated_store_in_place() -> None:
     columns = [row[1] for row in conn.execute("PRAGMA table_info(field_results)")]
     assert {"reader_value", "ocr_value", "agreed"} <= set(columns), "pre-006 store expected"
 
-    record = _sample_record("COLA-2026-4100")
+    record = _sample_record("LBL-2026-4100")
     record["result"] = "fail"
     record["decision"] = "returned"
     record["decided_by"] = "J. Park"
@@ -192,12 +192,12 @@ def test_migration_006_upgrades_a_populated_store_in_place() -> None:
         "INSERT INTO field_results "
         "(record_id, field_key, app_value, label_value, verdict, note, confidence, "
         " reader_value, ocr_value, agreed) "
-        "VALUES ('COLA-2026-4100', 'brand', 'Old Tom', 'OLD TOM', 'review', 'caps', 0.9,"
+        "VALUES ('LBL-2026-4100', 'brand', 'Old Tom', 'OLD TOM', 'review', 'caps', 0.9,"
         " 'OLD TOM', NULL, NULL)"
     )
     conn.execute(
         "INSERT INTO audit (ts, record_id, event, payload_json) "
-        "VALUES ('2026-08-19T00:00:00+00:00', 'COLA-2026-4100', 'verified', '{}')"
+        "VALUES ('2026-08-19T00:00:00+00:00', 'LBL-2026-4100', 'verified', '{}')"
     )
     conn.commit()
     conn.close()
@@ -216,14 +216,14 @@ def test_migration_006_upgrades_a_populated_store_in_place() -> None:
     assert "confidence" in field_columns, "reader evidence that is written stays"
     assert "reading_json" in record_columns
 
-    survivor = db.get_record("COLA-2026-4100")
+    survivor = db.get_record("LBL-2026-4100")
     assert survivor is not None
     assert survivor["result"] == "fail"
     assert survivor["decision"] == "returned"
     assert survivor["override"] == 1, "the override flag is the whole point of S8"
     assert survivor["reading_json"], "the reading behind the verdict survives"
 
-    fields = db.get_field_results("COLA-2026-4100")
+    fields = db.get_field_results("LBL-2026-4100")
     assert [(f["field_key"], f["verdict"], f["note"]) for f in fields] == [
         ("brand", "review", "caps")
     ]

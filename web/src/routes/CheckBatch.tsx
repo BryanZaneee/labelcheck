@@ -21,7 +21,7 @@ const REQUIRED =
   'filename, brand_name, class_type, alcohol_content, net_contents, producer, country_of_origin, government_warning, applicant'
 
 /** The pointer at the staged batch; the batch itself lives on the server (§5.5). */
-const BATCH_KEY = 'ttb.batch'
+const BATCH_KEY = 'labelcheck.batch'
 
 export function CheckBatch() {
   const [batchId, setBatchId] = useState(() => localStorage.getItem(BATCH_KEY) ?? '')

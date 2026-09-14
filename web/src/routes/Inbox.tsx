@@ -377,8 +377,8 @@ export function Inbox() {
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search brand, applicant, or COLA ID"
-          aria-label="Search brand, applicant, or COLA ID"
+          placeholder="Search brand, applicant, or record ID"
+          aria-label="Search brand, applicant, or record ID"
           style={{ flex: 1, minWidth: 150 }}
         />
         <button className="btn btn-quiet" onClick={() => setExporting(true)}>

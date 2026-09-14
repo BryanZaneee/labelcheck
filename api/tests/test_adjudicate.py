@@ -115,10 +115,10 @@ def test_a_specimen_that_is_not_a_label_is_invalid_not_fail() -> None:
     app = _application(fixture)
     reading = reader.read("old-tom-pass.jpg")
 
-    results, verdict = run("COLA-TEST", app, reading)
+    results, verdict = run("LBL-TEST", app, reading)
     assert verdict == "match" and results, "guard the control case first"
 
-    results, verdict = run("COLA-TEST", app, reading.model_copy(update={"not_a_label": True}))
+    results, verdict = run("LBL-TEST", app, reading.model_copy(update={"not_a_label": True}))
     assert verdict == "invalid"
     # No field rows: there is nothing to compare, and half-populated evidence
     # against a photograph of something else is worse than none.
@@ -126,7 +126,7 @@ def test_a_specimen_that_is_not_a_label_is_invalid_not_fail() -> None:
 
 
 def test_a_missing_government_warning_never_matches() -> None:
-    """27 CFR requires the warning, so an absent one fails however it was filed.
+    """The governing standard requires the warning, so an absent one fails however it was filed.
     An empty intake cell makes `declared` false (csv_io.parse_bool), which
     previously reached `match` - a clean auto-close on a non-compliant label."""
     for declared in (True, False):

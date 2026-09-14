@@ -1,0 +1,23 @@
+# Nightly off-box backup (PRD §8). Driven by the timer beside it, not on its own.
+#
+# Install:  cp deploy/labelcheck-backup.{service,timer} /etc/systemd/system/
+#           systemctl daemon-reload && systemctl enable --now labelcheck-backup.timer
+#
+# BACKUP_DEST and BACKUP_RECIPIENT go in /var/www/labelcheck/.env; the script
+# refuses to run without them.
+
+[Unit]
+Description=Off-box backup of the label store
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/var/www/labelcheck/.env
+ExecStart=/var/www/labelcheck/deploy/backup.sh
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/backups/labelcheck

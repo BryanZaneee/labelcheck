@@ -1,6 +1,6 @@
 /** S10: the minimised panel survives a reload, on this device. The record id
  *  rides along so a stale flag cannot collapse a different record. */
-const KEY = 'ttb.review'
+const KEY = 'labelcheck.review'
 
 export type ReviewPanel = { recordId: string; minimised: boolean }
 

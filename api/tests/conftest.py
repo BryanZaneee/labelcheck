@@ -7,7 +7,7 @@ import tempfile
 
 import pytest
 
-_TEST_DATA_DIR = tempfile.mkdtemp(prefix="ttb-test-data-")
+_TEST_DATA_DIR = tempfile.mkdtemp(prefix="labelcheck-test-data-")
 os.environ["DATA_DIR"] = _TEST_DATA_DIR
 # CI reads with the fixture replayer: no network, no spend (PRD §5.4).
 os.environ["READER_PROVIDER"] = "fake"

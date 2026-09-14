@@ -124,7 +124,7 @@ def test_an_exported_records_csv_stages_as_a_batch() -> None:
         b"id,received,applicant,filename,specimen,app_brand,app_class_type,"
         b"app_alcohol_content,app_net_contents,app_producer,app_origin,"
         b"app_warning_declared,verified,result\r\n"
-        b"COLA-1,2026-01-01,Abbey Row Brewing,abbey.png,abbey.png,Abbey Row,"
+        b"LBL-1,2026-01-01,Abbey Row Brewing,abbey.png,abbey.png,Abbey Row,"
         b"Belgian Style Dubbel,7.6%,330 mL,Abbey Row Brewing,,1,1,match\r\n"
     )
 

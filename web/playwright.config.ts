@@ -15,6 +15,8 @@ for (const line of readFileSync('../.env', 'utf8').split('\n')) {
  */
 export default defineConfig({
   testDir: './e2e',
+  // README captures, not tests; see e2e/screenshots.spec.ts.
+  testIgnore: process.env.SCREENSHOTS ? [] : ['**/screenshots.spec.ts'],
   fullyParallel: false, // one SQLite store, and the specs seed it
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

@@ -26,7 +26,7 @@ _request_id: ContextVar[str] = ContextVar("request_id", default="-")
 _counters: dict[str, int] = {}
 _counter_lock = threading.Lock()
 
-logger = logging.getLogger("ttb")
+logger = logging.getLogger("labelcheck")
 
 
 def new_request_id() -> str:

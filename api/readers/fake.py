@@ -12,6 +12,7 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
+import batching
 from models import CaptureQuality, FieldReading, LabelReading, WarningReading
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
@@ -27,11 +28,22 @@ def expectations() -> dict[str, Any]:
     return data
 
 
+@cache
+def _by_stem() -> dict[str, Any]:
+    return {batching.stem(name): fixture for name, fixture in expectations().items()}
+
+
 class FakeReader:
     def read(self, specimen: str, image_path: Path | None = None) -> LabelReading:
         # Never opens the image; image_path exists so every reader has one shape.
         del image_path
         fixture = expectations().get(Path(specimen).name)
+        if fixture is None:
+            # The sample batch copies one fixture under underscore and space
+            # names to make a row ambiguous (batches._sample_images). Replay
+            # those the way batching.stem pairs them, so no read falls back
+            # to OCR on a host without Tesseract.
+            fixture = _by_stem().get(batching.stem(specimen))
         if fixture is None:
             raise KeyError(f"no fixture expectation for specimen {specimen!r}")
 

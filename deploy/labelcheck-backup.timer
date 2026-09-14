@@ -1,8 +1,8 @@
-# Nightly backup (PRD §8). Install alongside ttb-build.service:
-#   cp deploy/ttb-build-backup.{service,timer} /etc/systemd/system/
-#   systemctl enable --now ttb-build-backup.timer
+# Nightly backup (PRD §8). Install alongside labelcheck.service:
+#   cp deploy/labelcheck-backup.{service,timer} /etc/systemd/system/
+#   systemctl enable --now labelcheck-backup.timer
 [Unit]
-Description=Nightly off-box backup of the TTB label store
+Description=Nightly off-box backup of the label store
 
 [Timer]
 # 03:20 UTC, after the daily vision call cap resets and well clear of the

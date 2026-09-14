@@ -1,7 +1,7 @@
-# Add inside the existing `bryanzane.com, www.bryanzane.com { ... }` block,
-# alongside the /llmbench and /com-voices subpath apps it already serves.
+# Add inside the existing `example.com, www.example.com { ... }` block,
+# alongside whatever other subpath apps it already serves.
 #
-# handle_path strips the /ttb-build prefix, so the SPA sees paths at its own
+# handle_path strips the /labelcheck prefix, so the SPA sees paths at its own
 # root and the API sees /api/* exactly as it does locally.
 #
 # The two inner handle blocks are mutually exclusive and evaluated in order,
@@ -9,9 +9,9 @@
 # to /index.html before the proxy matcher ever ran, and every API call would be
 # answered with the SPA shell.
 
-redir /ttb-build /ttb-build/ permanent
+redir /labelcheck /labelcheck/ permanent
 
-handle_path /ttb-build/* {
+handle_path /labelcheck/* {
 	handle /api/* {
 		# The store is live data: a cached GET means the inbox keeps showing
 		# counts from whenever the edge last fetched, and worse, serves one
@@ -29,7 +29,7 @@ handle_path /ttb-build/* {
 	}
 
 	handle {
-		root * /var/www/ttb-build/web/dist
+		root * /var/www/labelcheck/web/dist
 
 		# Vite fingerprints every asset, so those are safe to cache forever.
 		# The SPA shell must never be cached: it is the file that names the
@@ -42,7 +42,7 @@ handle_path /ttb-build/* {
 		# it a Cache Everything rule pinned every visitor to a day-old shell
 		# naming a bundle the deploy had already deleted. Note this only
 		# governs what the edge stores next: it cannot evict what is already
-		# cached, which needs a purge or a bypass rule for /ttb-build/*.
+		# cached, which needs a purge or a bypass rule for /labelcheck/*.
 		header CDN-Cache-Control "no-store"
 
 		try_files {path} /index.html

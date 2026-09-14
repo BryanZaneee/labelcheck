@@ -12,13 +12,13 @@ API surface reduced from 19 endpoints to 10. Authentication replaced with shared
 and spend controls. Performance targets reconciled with the 5-second stakeholder requirement.
 Batch pairing, prompt-injection posture, and AI governance specified.
 
-AI-assisted TTB-style COLA label verification. A reviewer files an application, a vision
+AI-assisted product label compliance verification. A reviewer files an application, a vision
 model reads the label specimen, the two are adjudicated field by field, and every
 determination is written to an auditable system of record.
 
 - **Stack:** React 19 + TypeScript (Vite) · Python 3.12 + FastAPI · SQLite system of record with CSV mirror · Caddy and systemd on a Tailscale-connected VPS
 - **Design source:** `Label Verification.dc.html` — high-fidelity, approved. Its colors, type and copy are normative.
-- **Target:** single-tenant internal tool, 1–10 concurrent reviewers, 2 vCPU / 4 GB VPS, reached at `bryanzane.com/ttb-build`
+- **Target:** single-tenant internal tool, 1–10 concurrent reviewers, 2 vCPU / 4 GB VPS, reached under a `/labelcheck` subpath on an existing public host
 - **Timeline:** milestones M0–M7; production cutover at M6, hardening at M7
 
 ---
@@ -45,7 +45,7 @@ disagreement pre-explained in language an agent can paste into a determination.
 - A batch of 25 applications + images verifies end to end in under 3 min; 300 in under 10.
 
 ### Out of scope for v1
-Multi-tenancy, applicant-facing portal, TTB system integration/e-filing, artwork editing,
+Multi-tenancy, applicant-facing portal, regulator system integration or e-filing, artwork editing,
 PDF specimens, e-signature, user accounts and role hierarchies (replaced by shared-token
 access, §8).
 
@@ -641,15 +641,15 @@ off-box storage, 30-day retention. Restore procedure documented and rehearsed on
 ## 9. Deployment
 
 The application runs on a Tailscale-connected VPS with no public ingress of its own. The
-existing public web host terminates TLS for `bryanzane.com` and reverse-proxies `/ttb-build`
+existing public web host terminates TLS for the public host and reverse-proxies `/labelcheck`
 across the tailnet to the application box. The app host therefore needs no open ports beyond
 Tailscale, which removes an entire class of exposure — the API is unreachable from the public
 internet except through the front Caddy.
 
-**Public host Caddyfile** (added to the existing `bryanzane.com` block):
+**Public host Caddyfile** (added to the existing public host block):
 
 ```
-handle_path /ttb-build/* {
+handle_path /labelcheck/* {
     reverse_proxy 100.88.216.70:8080
 }
 ```
@@ -662,8 +662,8 @@ serves the built frontend, proxies `/api`, and serves the image directory direct
 
 ```
 :8080 {
-    root * /var/www/ttb-build/web/dist
-    handle /api/images/* { root * /var/www/ttb-build/data; file_server }
+    root * /var/www/labelcheck/web/dist
+    handle /api/images/* { root * /var/www/labelcheck/data; file_server }
     handle /api/* { reverse_proxy 127.0.0.1:8020 }
     handle { try_files {path} /index.html; file_server }
     encode gzip
@@ -674,13 +674,13 @@ The CSV exports are API routes rather than files on disk (§4.2): the mirror is 
 debounced background timer, so serving the file races that writer.
 
 ```
-/var/www/ttb-build/
+/var/www/labelcheck/
   api/                   FastAPI app, its .venv, migrations
   web/dist/              built Vite bundle (immutable asset hashes)
   data/                  records.db, records.csv, images/, snapshots/
   .env                   READER_*, ACCESS_TOKEN, ADMIN_TOKEN, DAILY_VISION_CALL_CAP,
                          AUTO_APPROVE_MATCHES, QA_SAMPLE_RATE, DATA_DIR,
-                         PUBLIC_BASE_PATH=/ttb-build, BACKUP_DEST, BACKUP_RECIPIENT
+                         PUBLIC_BASE_PATH=/labelcheck, BACKUP_DEST, BACKUP_RECIPIENT
   deploy/                Caddyfile, systemd units, deploy.sh, backup.sh
 ```
 
@@ -713,7 +713,7 @@ image directory, encrypts it with `age`, ships it off-box with rsync, and prunes
 | M3 | Reader layer and bake-off | Image prep, versioned prompts, schema validation, retries, cache, the vision reader with its effort clamp, OCR fallback, injection fixtures, `scripts/bench.py`. *Exit:* the bake-off run and its table recorded in the README, no defect fixture reaching match for any reader, at least one configuration meeting the §8 p95 target, production default named with a rationale. |
 | M4 | Reviewer UI | Inbox, single check, determination view, decision dialogs with override warning, persisted minimise, toasts, records page. *Exit:* prototype parity signed off screen by screen. |
 | M5 | Batch pipeline | Pairing with all five buckets, stage/commit, sample batch, job queue with polled progress, verify-all, partial-failure recovery. *Exit:* 25-application batch inside the time budget with one row deliberately missing its image and one ambiguous pair blocking commit; 300-record run inside 10 minutes. |
-| M6 | Deploy and cutover | Tailnet-only app host, front-host `/ttb-build` proxy, systemd units, shared-token access, spend cap verified on the dashboard, encrypted off-box backups, deploy script with health gate and rollback. *Exit:* two reviewers work a real batch at `bryanzane.com/ttb-build` end to end. **Done.** |
+| M6 | Deploy and cutover | Tailnet-only app host, front-host `/labelcheck` proxy, systemd units, shared-token access, spend cap verified on the dashboard, encrypted off-box backups, deploy script with health gate and rollback. *Exit:* two reviewers work a real batch on the deployed app end to end. **Done.** |
 | M7 | Hardening | Playwright suite, accessibility audit, load pass at 10 concurrent reviewers, restore rehearsal, runbook and operator guide. *Exit:* runbook followed successfully by someone who did not build the system. **Partial:** the Playwright suite, the axe audit, the runbook and the backup timer are in; the load pass and a rehearsed restore are outstanding. |
 
 ---
@@ -827,7 +827,7 @@ folder — copy them there before running `api/seed.py` or `scripts/bench.py`.
    vendor's ML endpoints. No vision provider is a hard dependency: local OCR plus the rules
    engine produce a complete verdict with the reader disabled, and the engine string always
    names what read the label.
-2. **Standalone prototype.** No integration with COLA, no e-filing, no authorisation boundary
+2. **Standalone prototype.** No integration with any regulator system, no e-filing, no authorisation boundary
    shared with existing systems.
 3. **Synthetic data only.** All 25 specimens are generated; brands are fictional; no real trade
    dress is reproduced; no applicant PII exists in the deployment.

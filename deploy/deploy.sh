@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Deploy the Label Verification Service. Run as root on the app host:
-#   /var/www/ttb-build/deploy/deploy.sh
+#   /var/www/labelcheck/deploy/deploy.sh
 # Pulls, rebuilds both sides, restarts, and rolls back if health does not come up.
 set -euo pipefail
 
-APP=/var/www/ttb-build
+APP=/var/www/labelcheck
 PORT=8020
-BASE=/ttb-build
+BASE=/labelcheck
 
 cd "$APP"
 PREVIOUS=$(git rev-parse HEAD)
@@ -26,7 +26,7 @@ npm ci --silent --legacy-peer-deps
 PUBLIC_BASE_PATH="$BASE/" npm run build --silent
 
 echo "==> restart"
-systemctl restart ttb-build
+systemctl restart labelcheck
 
 # The API touches storage on boot, so a green /api/health means it is writable.
 for i in $(seq 1 20); do
@@ -42,5 +42,5 @@ done
 echo "!! unhealthy after 20s — rolling back to $PREVIOUS" >&2
 git reset --hard --quiet "$PREVIOUS"
 cd "$APP/api" && uv sync --quiet
-systemctl restart ttb-build
+systemctl restart labelcheck
 exit 1

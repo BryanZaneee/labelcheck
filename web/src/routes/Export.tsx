@@ -314,7 +314,7 @@ export function Export() {
             <table>
               <thead>
                 <tr>
-                  <th>COLA ID</th>
+                  <th>Record ID</th>
                   <th>Received</th>
                   <th>Brand</th>
                   <th>Class / type</th>

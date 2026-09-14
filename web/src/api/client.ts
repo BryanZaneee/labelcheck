@@ -32,7 +32,7 @@ const ACCESS_TOKEN = import.meta.env.VITE_ACCESS_TOKEN ?? ''
  * and CI; production leaves VITE_ADMIN_TOKEN empty and a reviewer supplies one,
  * held for this tab only.
  */
-const ADMIN_KEY = 'ttb.admin-token'
+const ADMIN_KEY = 'labelcheck.admin-token'
 
 function storedAdminToken(): string {
   try {

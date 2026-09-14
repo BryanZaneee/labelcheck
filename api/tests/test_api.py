@@ -566,7 +566,7 @@ def test_packed_field_values_survive_pipes_and_colons() -> None:
         {"field_key": "brand", "app_value": None, "label_value": "X|Y: Z"},
     ]
     restored = csv_io.unpack_field_results(
-        "COLA-1", "producer:match|brand:fail", "", csv_io.pack_field_values(rows)
+        "LBL-1", "producer:match|brand:fail", "", csv_io.pack_field_values(rows)
     )
     by_key = {r["field_key"]: r for r in restored}
     assert by_key["producer"]["app_value"] == "Bottled by: A|B Co"
@@ -780,7 +780,7 @@ def test_bulk_verify_survives_an_id_that_does_not_exist() -> None:
     resp = client.post(
         "/api/jobs",
         headers=ACCESS,
-        json={"scope": "ids", "record_ids": [*good, "COLA-2026-9999"]},
+        json={"scope": "ids", "record_ids": [*good, "LBL-2026-9999"]},
     )
     job = _await_job(resp.json()["id"])
     assert job["state"] == "done"

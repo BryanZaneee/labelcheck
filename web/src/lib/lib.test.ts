@@ -11,7 +11,7 @@ import {
 } from './copy'
 
 const record = (over: Partial<Parameters<typeof matchesQuery>[0]> = {}) => ({
-  id: 'COLA-2026-4100',
+  id: 'LBL-2026-4100',
   applicant: "Stone's Throw Spirits Co.",
   app_brand: 'Old Tom Distillery',
   filename: 'old-tom-pass.jpg',
@@ -51,7 +51,7 @@ describe('matchesQuery (S5)', () => {
     expect(matchesQuery(record(), 'stones throw')).toBe(true)
     expect(matchesQuery(record(), 'oldtompass')).toBe(true)
     // ...and punctuation in the query must not defeat a match either.
-    expect(matchesQuery(record(), 'COLA-2026-4100')).toBe(true)
+    expect(matchesQuery(record(), 'LBL-2026-4100')).toBe(true)
     expect(matchesQuery(record(), "Stone's Throw")).toBe(true)
   })
 

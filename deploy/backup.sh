@@ -5,19 +5,19 @@
 # both ends to 30 days.
 set -euo pipefail
 
-APP=/var/www/ttb-build
+APP=/var/www/labelcheck
 DATA="${DATA_DIR:-$APP/data}"
-STAGING=/var/backups/ttb-build
+STAGING=/var/backups/labelcheck
 RETENTION_DAYS=30
 
 # Both must be set: failing loudly beats an unencrypted backup, or one that
 # never leaves the disk it is protecting against losing.
-: "${BACKUP_DEST:?set BACKUP_DEST, e.g. user@host:/srv/backups/ttb-build}"
+: "${BACKUP_DEST:?set BACKUP_DEST, e.g. user@host:/srv/backups/labelcheck}"
 : "${BACKUP_RECIPIENT:?set BACKUP_RECIPIENT to the age public key to encrypt to}"
 
 STAMP=$(date -u +%Y-%m-%dT%H-%M-%SZ)
 mkdir -p "$STAGING"
-ARCHIVE="$STAGING/ttb-build-$STAMP.tar.gz"
+ARCHIVE="$STAGING/labelcheck-$STAMP.tar.gz"
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT

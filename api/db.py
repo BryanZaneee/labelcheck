@@ -310,7 +310,7 @@ def get_field_results(record_id: str) -> list[sqlite3.Row]:
 
 
 def next_record_id() -> str:
-    """COLA-YYYY-NNNN, continuing the highest number in the store.
+    """LBL-YYYY-NNNN, continuing the highest number in the store.
 
     One aggregate, not a scan: a 300-row batch calls this per row, which made the
     commit quadratic in the size of the store.
@@ -318,13 +318,13 @@ def next_record_id() -> str:
     conn = connect()
     try:
         row = conn.execute(
-            "SELECT MAX(CAST(substr(id, 11) AS INTEGER)) AS n FROM records "
-            "WHERE id LIKE 'COLA-____-%' ESCAPE '\\'"
+            "SELECT MAX(CAST(substr(id, 10) AS INTEGER)) AS n FROM records "
+            "WHERE id LIKE 'LBL-____-%' ESCAPE '\\'"
         ).fetchone()
     finally:
         conn.close()
     highest = max(4099, int(row["n"] or 0))
-    return f"COLA-{datetime.now(UTC).year}-{highest + 1}"
+    return f"LBL-{datetime.now(UTC).year}-{highest + 1}"
 
 
 def insert_new_record(row: dict[str, Any]) -> str:

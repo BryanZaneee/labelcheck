@@ -195,7 +195,7 @@ def apply_quality(
     return verdict, None
 
 
-# 27 CFR fixes the warning verbatim, so the label is compared against the
+# The governing standard fixes the warning verbatim, so the label is compared against the
 # statute; the application only declares it present (PRD §3.1, §4.1).
 STATUTORY_WARNING = (
     "GOVERNMENT WARNING: (1) According to the Surgeon General, women should not "
@@ -341,7 +341,7 @@ def _compare_net(app_raw: str | None, label_raw: str | None) -> tuple[Verdict, s
 
 
 def _compare_warning(reading: WarningReading) -> tuple[Verdict, str | None]:
-    # 27 CFR requires the warning on every label, so its absence is a fail even
+    # The governing standard requires the warning on every label, so its absence is a fail even
     # when the application did not declare one (PRD §3.1: required).
     if not reading.present:
         return "fail", (

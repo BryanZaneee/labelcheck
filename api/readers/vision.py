@@ -21,6 +21,7 @@ from typing import Any
 
 from openai import APIError, OpenAI
 
+from config import settings
 from models import CaptureQuality, FieldReading, LabelReading, WarningReading
 from readers.prep import prepare
 from readers.prompts import PROMPT, SCHEMA, VERSION
@@ -47,28 +48,61 @@ class SpendCapReached(ReaderError):
 
 # In-service backstop behind the provider's own spend limit (PRD §8). The PRD
 # sets it in dollars; counting calls needs no price table and cannot go stale.
-# ponytail: in-process, so per-worker and reset on restart - move it to the
-# audit table if the cap ever has to hold across either.
+# Persisted to a JSON file so a restart/deploy does not reset the demo's cap.
+# ponytail: one JSON file, one worker; move to SQLite if there's ever more
+# than one process.
 _calls: dict[str, int] = {}
 # Batch verification charges from READER_CONCURRENCY threads, so the
 # read-modify-write below has to be atomic or the cap over-runs.
 _calls_lock = threading.Lock()
 
 
+def _counter_path() -> Path:
+    return Path(settings.data_dir) / "vision_calls.json"
+
+
+def _load_persisted(today: str) -> int:
+    """The on-disk count for `today`, or 0 for a rollover, missing or corrupt file."""
+    try:
+        data = json.loads(_counter_path().read_text())
+    except (OSError, ValueError):
+        return 0
+    if data.get("date") != today:
+        return 0
+    count = data.get("count", 0)
+    return count if isinstance(count, int) else 0
+
+
+def _save_persisted(today: str, count: int) -> None:
+    try:
+        path = _counter_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"date": today, "count": count}))
+    except OSError:
+        pass
+
+
 def _charge_one_call(cap: int) -> None:
     today = datetime.now(UTC).date().isoformat()
     with _calls_lock:
-        spent = _calls.get(today, 0)
+        if today not in _calls:
+            _calls[today] = _load_persisted(today)
+        spent = _calls[today]
         if cap and spent >= cap:
             raise SpendCapReached(
                 f"daily paid-call cap of {cap} reached; verification is rules-only "
                 "until UTC midnight"
             )
         _calls[today] = spent + 1
+        _save_persisted(today, _calls[today])
 
 
 def calls_today() -> int:
-    return _calls.get(datetime.now(UTC).date().isoformat(), 0)
+    today = datetime.now(UTC).date().isoformat()
+    with _calls_lock:
+        if today not in _calls:
+            _calls[today] = _load_persisted(today)
+        return _calls[today]
 
 
 @dataclass

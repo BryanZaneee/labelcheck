@@ -788,6 +788,20 @@ def test_bulk_verify_survives_an_id_that_does_not_exist() -> None:
     assert sum(job["verdicts"].values()) == 2
 
 
+def test_bulk_verify_rejects_a_job_over_the_demo_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+    """PRD §8 demo cap: a job too big to fan out is rejected up front, before
+    any reader thread runs, not left to fail mid-batch."""
+    import config
+
+    monkeypatch.setattr(config.settings, "max_job_records", 2)
+    ids = [f"LBL-2026-{n}" for n in range(3)]
+    resp = client.post(
+        "/api/jobs", headers=ACCESS, json={"scope": "ids", "record_ids": ids}
+    )
+    assert resp.status_code == 413
+    assert "3 records" in resp.json()["detail"]
+
+
 def test_bulk_verify_requires_ids() -> None:
     resp = client.post("/api/jobs", headers=ACCESS, json={"scope": "ids", "record_ids": []})
     job = _await_job(resp.json()["id"])
@@ -1244,6 +1258,36 @@ def test_upload_is_rate_limited_per_ip(monkeypatch: pytest.MonkeyPatch) -> None:
     ]
     assert 429 in statuses, f"expected throttling, got {statuses}"
     assert statuses.count(429) == 2, f"first three should pass: {statuses}"
+    main._hits.clear()
+
+
+def test_rate_limit_is_keyed_on_the_cf_connecting_ip(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Behind Cloudflare -> Caddy every request shares one proxy IP, so the
+    limiter must key on CF-Connecting-IP or every visitor shares one bucket."""
+    import main
+
+    monkeypatch.setattr(main, "_LIMIT_PER_MINUTE", 1)
+    main._hits.clear()
+
+    def upload(ip: str) -> int:
+        return client.post(
+            "/api/records",
+            headers={**ACCESS, "CF-Connecting-IP": ip},
+            data={
+                "applicant": "Acme",
+                "beverage": "spirits",
+                "application": (
+                    '{"brand": "Old Tom", "class_type": "Bourbon", '
+                    '"abv": "45%", "net": "750 mL"}'
+                ),
+                "specimen_key": "old-tom-pass.jpg",
+            },
+            files={},
+        ).status_code
+
+    assert upload("203.0.113.1") == 201
+    assert upload("203.0.113.2") == 201
+    assert upload("203.0.113.1") == 429
     main._hits.clear()
 
 

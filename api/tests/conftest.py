@@ -15,11 +15,16 @@ os.environ.setdefault("ACCESS_TOKEN", "test-access-token")
 os.environ.setdefault("ADMIN_TOKEN", "test-admin-token")
 
 import db  # must import after DATA_DIR is set above
+import main
 
 
 @pytest.fixture(autouse=True)
 def _fresh_db() -> None:
     db.wipe()
+    # The rate limiter's per-IP hit log is process-global, not per-test; every
+    # test shares the TestClient's IP, so a lower limit needs a reset here to
+    # keep tests independent (ponytail: in-process limiter, see main.py).
+    main._hits.clear()
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:

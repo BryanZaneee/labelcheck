@@ -6,6 +6,8 @@ regressions covered here were both found by calling the live APIs - the spec
 described neither correctly.
 """
 
+from pathlib import Path
+
 import pytest
 
 from models import LabelReading
@@ -90,6 +92,28 @@ def test_daily_call_cap_stops_paid_requests_and_does_not_retry() -> None:
     # A zero cap disables the backstop entirely.
     vision._charge_one_call(0)
     assert reader.daily_call_cap == 2
+    vision._calls.clear()
+
+
+def test_the_daily_call_count_survives_a_restart(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The counter is a JSON file under DATA_DIR precisely so a redeploy does
+    not reopen the spend cap (PRD §8, public demo)."""
+    import config
+    from readers import vision
+
+    monkeypatch.setattr(config.settings, "data_dir", str(tmp_path))
+    vision._calls.clear()
+
+    vision._charge_one_call(0)
+    vision._charge_one_call(0)
+    assert vision.calls_today() == 2
+
+    # Simulate a restart: the in-memory dict is gone, only the file remains.
+    vision._calls.clear()
+    assert vision.calls_today() == 2
+
     vision._calls.clear()
 
 

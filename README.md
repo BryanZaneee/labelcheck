@@ -123,7 +123,8 @@ filing nobody verifies never pays for one. Repeat reads are cached by prompt ver
 `DAILY_VISION_CALL_CAP` caps spend. If the vision reader is unreachable, local Tesseract OCR
 takes over and the record carries a *Read by local OCR* chip. Measured on the fixture set, OCR
 gets 85 of 155 fields against the vision reader's 122: enough to fall back to, not to gate
-auto-close on.
+auto-close on. The call count backing that cap is persisted to a JSON file under `DATA_DIR`, so
+a redeploy does not reopen it for the day.
 
 **SQLite in WAL mode, no ORM.** One file, concurrent readers, a single writer, and migrations as
 numbered SQL applied at boot and tracked in `schema_version`. The store is small, the queries are
@@ -156,6 +157,7 @@ Re-run it before changing the model or the image prep constants.
 | `VITE_ACCESS_TOKEN` / `VITE_ADMIN_TOKEN` | The browser's copies. Anything prefixed `VITE_` ships in the bundle. |
 | `DATA_DIR` | Where the SQLite store, images and snapshots live |
 | `DAILY_VISION_CALL_CAP` | Spend cap per day for the vision reader |
+| `MAX_JOB_RECORDS` | Records a single verify job can fan out to at once |
 | `PUBLIC_BASE_PATH` | Subpath in production. Empty locally. |
 
 Never give the reader API key a `VITE_` prefix. Leave `VITE_ADMIN_TOKEN` empty in production;

@@ -39,9 +39,18 @@ _ADMIN_ROUTES = [
 # PRD §8: per-IP limits on upload and verify, the two routes that cost money and
 # disk - everything else is a read against SQLite.
 _LIMITED_ROUTES = (("POST", "/api/records"), ("POST", "/api/jobs"))
-_LIMIT_PER_MINUTE = 60
+_LIMIT_PER_MINUTE = 20
 _hits: dict[str, list[float]] = {}
 _hits_lock = threading.Lock()
+
+
+def client_ip(request: Request) -> str:
+    """The real visitor behind Cloudflare -> Caddy, not the proxy hop."""
+    if cf_ip := request.headers.get("CF-Connecting-IP"):
+        return cf_ip
+    if forwarded := request.headers.get("X-Forwarded-For"):
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
 
 
 def _over_limit(client_ip: str) -> bool:
@@ -63,7 +72,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         limited = any(
             request.method == m and request.url.path.startswith(p) for m, p in _LIMITED_ROUTES
         )
-        if limited and _over_limit(request.client.host if request.client else "unknown"):
+        if limited and _over_limit(client_ip(request)):
             logs.count("rate_limited")
             logs.event("rate_limited", path=request.url.path)
             return JSONResponse(

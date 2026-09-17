@@ -188,8 +188,31 @@ def _run(job: Job, body: JobCreateRequest) -> None:
         save_job(job)
 
 
+def _resolved_record_count(body: JobCreateRequest) -> int:
+    """How many records this job covers, without claiming or committing anything -
+    just enough to enforce MAX_JOB_RECORDS before any work starts."""
+    if body.scope == "ids":
+        return len(body.record_ids)
+    if body.scope == "batch":
+        staged = batches.get_staged(body.batch_id) if body.batch_id else None
+        if staged is None:
+            return 0
+        if not body.rows:
+            return len(staged.rows)
+        wanted = set(body.rows)
+        return len([r for r in staged.rows if r.row in wanted])
+    return len([r for r in db.list_records(result_filter="pending") if r["specimen"]])
+
+
 @router.post("/jobs", response_model=Job)
 def create_job(body: JobCreateRequest) -> Job:
+    count = _resolved_record_count(body)
+    if count > settings.max_job_records:
+        raise HTTPException(
+            status_code=413,
+            detail=f"job covers {count} records; the demo cap is "
+            f"{settings.max_job_records} per job",
+        )
     job = save_job(Job(id=f"job-{uuid.uuid4().hex[:8]}", scope=body.scope))
     db.run_in_background(_run, job, body)
     return job

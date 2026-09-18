@@ -210,8 +210,8 @@ def create_job(body: JobCreateRequest) -> Job:
     if count > settings.max_job_records:
         raise HTTPException(
             status_code=413,
-            detail=f"job covers {count} records; the demo cap is "
-            f"{settings.max_job_records} per job",
+            detail=f"job covers {count} records; jobs are limited to "
+            f"{settings.max_job_records} records",
         )
     job = save_job(Job(id=f"job-{uuid.uuid4().hex[:8]}", scope=body.scope))
     db.run_in_background(_run, job, body)

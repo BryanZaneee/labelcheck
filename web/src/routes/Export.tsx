@@ -7,7 +7,7 @@ import { Dialog } from '../components/Dialog'
 
 /**
  * Export and store administration. CSV exists only as a download (S13), so the
- * prototype's "view raw CSV" is the record table below.
+ * only on-screen view of the store is the record table below.
  */
 export function Export() {
   const client = useQueryClient()

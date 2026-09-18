@@ -1,4 +1,4 @@
-id,filename,brand,class_type,alcohol,net_contents,origin,look,treatment,intended_defect
+id,filename,brand,class_type,alcohol,net_contents,origin,look,treatment,scenario
 1,old-tom-pass.jpg,OLD TOM DISTILLERY,Kentucky Straight Bourbon Whiskey,45% Alc./Vol. (90 Proof),750 mL,,classic,normal,none - clean reference
 2,stones-throw-caps.jpg,STONE'S THROW,Kentucky Straight Bourbon Whiskey,45% Alc./Vol. (90 Proof),750 mL,,industrial,normal,brand name rendered in full caps (only deviation; warning verbatim)
 3,harbor-mist-nowarning.jpg,HARBOR MIST,India Pale Ale,6.8% Alc./Vol.,12 FL OZ,,botanical,normal,government warning completely absent from the label

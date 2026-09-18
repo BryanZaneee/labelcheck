@@ -48,7 +48,7 @@ class SpendCapReached(ReaderError):
 
 # In-service backstop behind the provider's own spend limit (PRD §8). The PRD
 # sets it in dollars; counting calls needs no price table and cannot go stale.
-# Persisted to a JSON file so a restart/deploy does not reset the demo's cap.
+# Persisted to a JSON file so a restart/deploy does not reset the spend limit.
 # ponytail: one JSON file, one worker; move to SQLite if there's ever more
 # than one process.
 _calls: dict[str, int] = {}

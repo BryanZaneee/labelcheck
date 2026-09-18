@@ -99,7 +99,7 @@ def test_the_daily_call_count_survives_a_restart(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """The counter is a JSON file under DATA_DIR precisely so a redeploy does
-    not reopen the spend cap (PRD §8, public demo)."""
+    not reopen the spend cap (PRD §8, hosted instance)."""
     import config
     from readers import vision
 

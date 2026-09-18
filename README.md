@@ -7,14 +7,13 @@ into `match`, `review`, `fail` or `invalid`. Every determination lands in an aud
 
 ![Review inbox with mixed verdicts](docs/screenshots/inbox.png)
 
-**All data is synthetic.** The 25 bundled label images are generated, the brands are fictional,
-and no real applicant information exists anywhere in the system. The demo domain is beverage
-labels, because that is what the bundled rules and fixtures encode; the pipeline is not tied to it.
+## Try it
 
-## Evaluate it yourself
+Hosted at <https://bryanzane.com/labelcheck/>.
 
-Four commands from clone to a verdict, no API key and no spend. The `fake` reader replays the
-fixture ground truth, so every bundled label reaches its documented verdict instantly and offline.
+To run it locally: four commands from clone to a verdict, no API key and no spend. The `fake`
+reader replays the fixture ground truth, so every bundled label reaches its documented verdict
+instantly and offline.
 
 ```bash
 git clone https://github.com/BryanZaneee/labelcheck.git && cd labelcheck
@@ -26,7 +25,7 @@ cd web && npm ci --legacy-peer-deps && npm run dev
 Open <http://localhost:5173/check>, pick a named sample such as *Reworded warning* (Lark Hollow)
 or *Unit difference* (Quarry House), and press **Submit for verification**. The record page shows
 the application and the label side by side with a verdict per field. The inbox at `/inbox` opens
-on a 13-record example set that is deliberately part-worked so every filter has something in it.
+on a 13-record starter set.
 
 Requirements: Python 3.12+, [uv](https://docs.astral.sh/uv/), Node 22. Tesseract is optional and
 only used by the `ocr` reader (`brew install tesseract`).
@@ -40,8 +39,6 @@ only used by the `ocr` reader (`brew install tesseract`).
 | ![Override recorded against the reviewer](docs/screenshots/override-recorded.png) | ![Batch CSV import with pairing buckets](docs/screenshots/batch-import.png) |
 | The decision is recorded with the reviewer, the timestamp and the override flag. | Batch import pairs a CSV with an image folder and blocks commit while a row is ambiguous. |
 
-![Full test run](docs/screenshots/test-run.png)
-
 ## Quickstart
 
 ```bash
@@ -51,20 +48,20 @@ cd web && npm ci --legacy-peer-deps && npm run dev
 ```
 
 `.env` lives at the repo root and both sides read the one copy. The seed step creates the SQLite
-store under `data/` (gitignored). For the real vision reader set `READER_PROVIDER=openai` and
-`OPENAI_API_KEY`.
+store under `data/` (gitignored). Ships with 25 sample labels (fictional brands) so every screen
+has data. For the real vision reader set `READER_PROVIDER=openai` and `OPENAI_API_KEY`.
 
 ### Tests
 
 Three suites, all offline, all against the fixture replayer. CI runs each on every push.
 
-| Suite | Command | Result |
-| --- | --- | --- |
-| pytest, ruff, mypy | `cd api && uv run ruff check . && uv run mypy . && uv run pytest -q` | 205 passed, 3 skipped |
-| Vitest | `cd web && npm run lint && npm run test && npm run build` | 16 passed |
-| Playwright + axe-core | `cd web && npx playwright test` | 16 passed (5 are WCAG 2A/2AA audits) |
+```bash
+cd api && uv run ruff check . && uv run mypy . && uv run pytest -q   # pytest, ruff, mypy
+cd web && npm run lint && npm run test && npm run build              # Vitest
+cd web && npx playwright test                                        # Playwright + axe-core
+```
 
-Playwright boots both servers itself, so it works from a cold checkout. The three skipped pytest
+Playwright boots both servers itself, so it works from a cold checkout. The skipped pytest
 cases are the live-reader prompt-injection tests; they need `LIVE_READER` set and cost money.
 `SCREENSHOTS=1 npx playwright test e2e/screenshots.spec.ts` regenerates the images above.
 
@@ -90,7 +87,7 @@ label image ──► reader ──► LabelReading ──┼──► rules eng
   inbox, single check, batch upload, record detail and export.
 - **deploy/** Caddy subpath config, systemd units, `deploy.sh` (pull, build, restart, health
   check, rollback) and `backup.sh` (nightly `age`-encrypted off-box copy, 30-day prune).
-- **api/fixtures/** 25 synthetic labels, the applications CSV and `expectations.json`, plus
+- **api/fixtures/** 25 sample labels, the applications CSV and `expectations.json`, plus
   three adversarial images under `injection/`.
 
 The seven fields the rules engine compares, and how:
@@ -170,11 +167,9 @@ restarts the unit and rolls back if the health endpoint does not come up within 
 `deploy/backup.sh` runs nightly on a systemd timer and refuses to write an unencrypted copy.
 Migrations apply at boot, so there is no separate step to forget.
 
-## Known limitations
+## Limitations
 
-Left alone deliberately rather than half-fixed:
-
-| Limitation | What it costs |
+| Limitation | Effect |
 | --- | --- |
 | A batch commit is not atomic across claim and insert | A mid-commit failure leaves rows neither staged nor filed |
 | Resetting the store while a job runs does not join the verification pool | Verifications in flight are silently discarded |
@@ -183,9 +178,9 @@ Left alone deliberately rather than half-fixed:
 | The warning is judged on the image filed | A warning on the other side of the package fails, possibly falsely |
 | The per-IP rate limiter keeps a counter per address for the process lifetime | Memory grows with distinct clients |
 
-Out of scope by decision: multi-tenancy, an applicant-facing portal, integration with any
-regulator's filing system, PDF uploads, e-signature, and user accounts. Shared-token access
-stands in for the last one. The full spec, including the roadmap and the fixture manifest, is in
+Not included: multi-tenancy, an applicant-facing portal, integration with any regulator's
+filing system, PDF uploads, e-signature, and user accounts. Shared-token access stands in for
+the last one. The full spec, including the fixture manifest, is in
 [`docs/PRD.md`](docs/PRD.md); [`docs/troubleshooting.md`](docs/troubleshooting.md) covers the
 knobs the README does not list.
 

@@ -788,8 +788,8 @@ def test_bulk_verify_survives_an_id_that_does_not_exist() -> None:
     assert sum(job["verdicts"].values()) == 2
 
 
-def test_bulk_verify_rejects_a_job_over_the_demo_cap(monkeypatch: pytest.MonkeyPatch) -> None:
-    """PRD §8 demo cap: a job too big to fan out is rejected up front, before
+def test_bulk_verify_rejects_a_job_over_the_size_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """PRD §8 job-size limit: a job too big to fan out is rejected up front, before
     any reader thread runs, not left to fail mid-batch."""
     import config
 
@@ -800,6 +800,7 @@ def test_bulk_verify_rejects_a_job_over_the_demo_cap(monkeypatch: pytest.MonkeyP
     )
     assert resp.status_code == 413
     assert "3 records" in resp.json()["detail"]
+    assert "limited to 2 records" in resp.json()["detail"]
 
 
 def test_bulk_verify_requires_ids() -> None:

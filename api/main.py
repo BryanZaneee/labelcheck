@@ -45,11 +45,7 @@ _hits_lock = threading.Lock()
 
 
 def client_ip(request: Request) -> str:
-    """The real visitor behind Cloudflare -> Caddy, not the proxy hop."""
-    if cf_ip := request.headers.get("CF-Connecting-IP"):
-        return cf_ip
-    if forwarded := request.headers.get("X-Forwarded-For"):
-        return forwarded.split(",")[0].strip()
+    """Use the peer normalized by the ASGI server's trusted-proxy settings."""
     return request.client.host if request.client else "unknown"
 
 

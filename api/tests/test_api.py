@@ -1262,9 +1262,8 @@ def test_upload_is_rate_limited_per_ip(monkeypatch: pytest.MonkeyPatch) -> None:
     main._hits.clear()
 
 
-def test_rate_limit_is_keyed_on_the_cf_connecting_ip(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Behind Cloudflare -> Caddy every request shares one proxy IP, so the
-    limiter must key on CF-Connecting-IP or every visitor shares one bucket."""
+def test_forged_forwarding_headers_cannot_reset_the_rate_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Raw forwarding headers are attacker-controlled on direct API calls."""
     import main
 
     monkeypatch.setattr(main, "_LIMIT_PER_MINUTE", 1)
@@ -1273,7 +1272,7 @@ def test_rate_limit_is_keyed_on_the_cf_connecting_ip(monkeypatch: pytest.MonkeyP
     def upload(ip: str) -> int:
         return client.post(
             "/api/records",
-            headers={**ACCESS, "CF-Connecting-IP": ip},
+            headers={**ACCESS, "CF-Connecting-IP": ip, "X-Forwarded-For": ip},
             data={
                 "applicant": "Acme",
                 "beverage": "spirits",
@@ -1287,7 +1286,7 @@ def test_rate_limit_is_keyed_on_the_cf_connecting_ip(monkeypatch: pytest.MonkeyP
         ).status_code
 
     assert upload("203.0.113.1") == 201
-    assert upload("203.0.113.2") == 201
+    assert upload("203.0.113.2") == 429
     assert upload("203.0.113.1") == 429
     main._hits.clear()
 

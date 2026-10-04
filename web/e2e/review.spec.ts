@@ -6,7 +6,7 @@ import { expect, test } from '@playwright/test'
  * function. The store resets before each spec, so none inherits another's work.
  */
 
-const API = 'http://127.0.0.1:8031'
+const API = 'http://127.0.0.1:18031'
 
 test.beforeEach(async ({ request }) => {
   const reset = await request.post(`${API}/api/fixtures`, {
@@ -199,7 +199,9 @@ test('an open dialog keeps Tab inside it and gives focus back on close', async (
   // behaviour - it audits markup - so this is the check that covers it.
   await page.goto('/inbox')
   const opener = page.getByRole('button', { name: 'Run AI verification on all' })
-  await opener.click()
+  // Exercise the keyboard journey; Safari mouse clicks do not focus buttons.
+  await opener.focus()
+  await page.keyboard.press('Enter')
 
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
@@ -207,7 +209,7 @@ test('an open dialog keeps Tab inside it and gives focus back on close', async (
   // Focus starts inside, and ten tabs never take it out.
   await expect(dialog.locator(':focus')).toHaveCount(1)
   for (let i = 0; i < 10; i++) {
-    await page.keyboard.press('Tab')
+    await page.keyboard.press(i % 2 ? 'Shift+Tab' : 'Tab')
     expect(
       await dialog.evaluate((el) => el.contains(document.activeElement)),
       `Tab ${i + 1} escaped the dialog`,

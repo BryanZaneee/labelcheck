@@ -6,7 +6,7 @@ import { expect, test } from '@playwright/test'
  * are noisy on a dense table, and a suite that always fails is one nobody reads.
  */
 
-const API = 'http://127.0.0.1:8031'
+const API = 'http://127.0.0.1:18031'
 
 // Seed the store this suite audits rather than inheriting whatever ran before.
 // review.spec.ts resets per test, so alone these specs passed and on a cold

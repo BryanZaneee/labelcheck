@@ -55,7 +55,7 @@ jobs:
         working-directory: api
       - run: npm ci --legacy-peer-deps
         working-directory: web
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium firefox webkit
         working-directory: web
       - run: |
           cat > .env <<'ENVEOF'

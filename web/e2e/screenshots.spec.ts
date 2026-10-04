@@ -8,7 +8,7 @@ import { expect, test } from '@playwright/test'
  *   SCREENSHOTS=1 npx playwright test e2e/screenshots.spec.ts
  */
 
-const API = 'http://127.0.0.1:8031'
+const API = 'http://127.0.0.1:18031'
 const OUT = '../docs/screenshots'
 
 test.use({ viewport: { width: 1440, height: 960 } })

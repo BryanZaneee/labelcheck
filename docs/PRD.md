@@ -1,6 +1,6 @@
-# Label Verification Service — PRD & Build Plan
+# Labelcheck — Product Specification
 
-**v1.2 — 20 Aug 2026.** Reconciled with the delivered build. One configured vision provider
+**v1.2 — 20 Aug 2026.** Reconciled with the shipped build. One configured vision provider
 rather than two, with local OCR as its fallback rather than an always-on second reader;
 extraction on request rather than on upload; job progress by polling rather than server-sent
 events; a paid-call cap rather than a dollar estimate; `invalid` added to the verdict enum;
@@ -9,7 +9,7 @@ reason is stated in place and the trade recorded in the README.
 
 **v1.1 — 19 Aug 2026.** System of record moved from CSV to SQLite with a derived CSV mirror.
 API surface reduced from 19 endpoints to 10. Authentication replaced with shared-token access
-and spend controls. Performance targets reconciled with the 5-second stakeholder requirement.
+and spend controls. Performance targets reconciled with the 5-second verification target.
 Batch pairing, prompt-injection posture, and AI governance specified.
 
 AI-assisted product label compliance verification. A reviewer files an application, a vision
@@ -17,9 +17,8 @@ model reads the label specimen, the two are adjudicated field by field, and ever
 determination is written to an auditable system of record.
 
 - **Stack:** React 19 + TypeScript (Vite) · Python 3.12 + FastAPI · SQLite system of record with CSV mirror · Caddy and systemd on a Tailscale-connected VPS
-- **Design source:** `Label Verification.dc.html` — high-fidelity, approved. Its colors, type and copy are normative.
+- **Design:** the token set in §6.2 and the screen copy in §6.1 are normative.
 - **Target:** single-tenant internal tool, 1–10 concurrent reviewers, 2 vCPU / 4 GB VPS, reached under a `/labelcheck` subpath on an existing public host
-- **Timeline:** milestones M0–M7; production cutover at M6, hardening at M7
 
 ---
 
@@ -147,7 +146,7 @@ atomic temp-file replacement, an advisory `flock`, a process-wide lock, a forced
 Uvicorn worker, and a bespoke migration reader. SQLite provides all of it, ships in the
 standard library, adds no container and no operational surface, and remains a single file that
 can be copied for backup. The v1.0 design also documented its own 20,000-row retirement
-trigger; adopting SQLite at M1 removes that migration from the roadmap entirely.
+trigger; adopting SQLite removes that migration entirely.
 
 ```
 data/
@@ -417,8 +416,8 @@ header bold) and a capture-quality classification drawn from the fixture vocabul
 
 Local OCR (Tesseract) is free, needs no network, and serves two purposes:
 
-1. **Fallback reader.** When the vision provider is unreachable — the firewall scenario raised
-   in the IT interview — OCR supplies observed values and the engine string names it, so the
+1. **Fallback reader.** When the vision provider is unreachable — a restricted-egress network,
+   for instance — OCR supplies observed values and the engine string names it, so the
    service degrades rather than blocking. A record read this way carries a *Read by local OCR*
    chip in the determination view.
 2. **Illegibility prior.** The sharpness score computed during preparation drives the
@@ -487,9 +486,9 @@ The p95 column is checked directly against the 5-second requirement in §8.
 The three-way agreement matrix v1.1 specified is not produced: it existed to justify the
 auto-close gate's reader-agreement clause, which §5.3 no longer has.
 
-**Exit criteria.** M3 does not close until the bake-off has been run, no reader shows a defect
-fixture reaching `match`, and at least one configuration meets the p95 target of §8. The chosen
-production default is named in the README with a rationale citing the table.
+**Release bar.** A reader configuration ships only once the bake-off has been run, no reader
+shows a defect fixture reaching `match`, and at least one configuration meets the p95 target of
+§8. The production default is named in the README with a rationale citing the table.
 `tests/test_readers.py` runs the same code path against the `fake` reader, so the benchmark is
 covered in CI without network access or spend.
 
@@ -522,12 +521,11 @@ per acceptance test 9.
 
 Vite + React 19 + TS strict, React Router, TanStack Query for server state, Zod for response
 parsing, and an API client generated from the FastAPI OpenAPI schema (`openapi-typescript`) so
-types cannot drift. Styling: CSS modules with the token set below — no component framework; the
-prototype's markup translates directly. Vitest + Testing Library for units, Playwright for the
+types cannot drift. Styling: CSS modules with the token set below — no component framework. Vitest + Testing Library for units, Playwright for the
 flows in §11. The app is served under `PUBLIC_BASE_PATH` (§9), which threads into Vite `base`
 and the Router `basename`.
 
-### 6.1 Screens (from the approved prototype)
+### 6.1 Screens
 
 | Route | Contents |
 | --- | --- |
@@ -537,7 +535,7 @@ and the Router `basename`.
 | `/records/:id` | Determination view. Specimen viewer (zoom, quality treatment noted) beside the three-column comparison — application says / label shows / result — one row per field with the agent-ready note and both readers' values, then engine, per-stage timings and the decision bar (Accept, Return, minimise). Minimised state and open record persist in `localStorage`. |
 | `/store` | Record store, rendered as a normal table — never raw CSV. Export (the served mirror), import, blank template, reset-to-example with confirmation, snapshot list. |
 
-### 6.2 Design tokens (normative, from the prototype)
+### 6.2 Design tokens (normative)
 
 | Token | Value | Use |
 | --- | --- | --- |
@@ -557,11 +555,11 @@ and the Router `basename`.
 
 ## 7. Fixtures and specimen generation
 
-The test set is 25 synthetic specimens across eight label looks and nine capture treatments —
+The sample set is 25 specimens across eight label looks and nine capture treatments —
 11 clean, 2 mild blur, 1 heavy blur, 3 glare, 3 pixelated, 2 off-axis, 1 dark, 1 damaged,
-1 cropped — with the intended defect declared per row, plus three adversarial specimens
-carrying injected instruction text (§3.3). Generation instructions and the full manifest are in
-`label-image-generation-prompt.md`; brands are fictional, no real trade dress.
+1 cropped — with the scenario declared per row, plus three adversarial specimens carrying
+injected instruction text (§3.3). The full manifest is in §13 and `docs/fixtures-manifest.csv`;
+brands are fictional.
 
 Each fixture carries an expectation record in `fixtures/expectations.json`: application values
 as filed, values truly on the label, fields deliberately made illegible, and the expected
@@ -577,15 +575,14 @@ volume.
 ## 8. Non-functional requirements
 
 **Performance.** Verification p95 **under 5 seconds measured from the reviewer pressing
-Verify** — the threshold the Compliance Division identified as the point at which the previous
-scanning pilot was abandoned. Because extraction runs on request rather than on upload (§5.2),
+Verify** — the point past which a reviewer stops waiting and reads the label by eye. Because extraction runs on request rather than on upload (§5.2),
 that window is wholly model latency, so it is measured rather than assumed:
 §5.4 records 4,084 ms p95 for the production configuration. Per-stage timings
 are recorded on every record. Inbox first paint under 1.5 s on a cold cache. Store operations
 under 300 ms.
 
 **Batch throughput.** A 25-application batch completes in under 3 minutes. A 300-application
-batch — the peak-season volume described by the Compliance Division — completes in under 10
+batch — a peak-season volume — completes in under 10
 minutes at `READER_CONCURRENCY=10`. Concurrency is bounded, not unbounded: 300 simultaneous
 requests would exceed provider rate limits, exhaust memory during image preparation, and
 destroy per-record progress reporting. Note that OpenAI Tier 1 limits are 500 RPM and 500,000
@@ -595,7 +592,7 @@ dropped, because an honest one needs a per-model price table and the enforced co
 call cap below.
 
 **Access.** No user accounts, no signup, no session management. Mutating endpoints require a
-shared bearer token (`ACCESS_TOKEN`) supplied in the README; `POST /api/store/import` and
+shared bearer token (`ACCESS_TOKEN`) set in `.env`; `POST /api/store/import` and
 `POST /api/fixtures {mode: reset}` additionally require `ADMIN_TOKEN`. This is one middleware
 and no user model, and it prevents an unauthenticated visitor from spending the model budget.
 Because there is no identity, `decided_by` is captured as a free-text reviewer name on the
@@ -616,8 +613,8 @@ re-encoded before storage); images served from a path that cannot execute; CSV c
 against spreadsheet formula injection on export; reader API key server-side only, never in the
 client bundle; dependencies pinned with hashes, `pip-audit` and `npm audit` gating CI, SBOM
 generated at build. Structured logs redact applicant names and free-text notes — only record
-identifiers, verdicts, and timings are logged. The deployment carries synthetic fixture data
-only; no real applicant information is present, which is stated in the README.
+identifiers, verdicts, and timings are logged. The bundled fixtures use fictional brands;
+no real applicant information ships with the product.
 
 **AI governance.** `AUTO_APPROVE_MATCHES` defaults to **off** and is admin-configurable only.
 When enabled, auto-close requires the full eligibility test of §5.3, every auto-close writes an
@@ -634,7 +631,7 @@ counters for verifications, verdict mix, reader errors, cache hits, spend; `/api
 by the host.
 
 **Data protection.** Nightly snapshot of `records.db` and the image directory to encrypted
-off-box storage, 30-day retention. Restore procedure documented and rehearsed once at M7.
+off-box storage, 30-day retention. Restore procedure documented and rehearsed.
 
 ---
 
@@ -699,22 +696,23 @@ host, gates on `/api/health`, and resets to the previous commit if it does not c
 
 **Backups.** `deploy/backup.sh` on a systemd timer takes a `sqlite3 .backup` copy with the
 image directory, encrypts it with `age`, ships it off-box with rsync, and prunes both ends to
-30 days. A rehearsed restore is outstanding — see §10 M7.
+30 days. A rehearsed restore is outstanding — see §10.
 
 ---
 
 ## 10. Roadmap
 
-| M | Milestone | Deliverables and exit criteria |
-| --- | --- | --- |
-| M0 | Skeleton and contracts | Monorepo (`api/`, `web/`, `fixtures/`), Pydantic models, hand-written TS types, token middleware, health endpoint, CI green. *Exit:* both dev servers serve an empty inbox from the real API. |
-| M1 | SQLite store, CSV mirror, fixtures | Three-table schema, migrations, snapshots, append-only audit, seed/reset, `csv_io` plus the debounced mirror, 25 specimens with `expectations.json`. *Exit:* byte-identical round trip and reset both pass; mirror regenerates within two seconds of a mutation. |
-| M2 | Rules engine | Normalisation, per-field comparison, warning composite, roll-up, agent-ready notes, quality downgrade. *Exit:* all 25 fixture expectations green with the `fake` reader; no defect fixture reaches match. |
-| M3 | Reader layer and bake-off | Image prep, versioned prompts, schema validation, retries, cache, the vision reader with its effort clamp, OCR fallback, injection fixtures, `scripts/bench.py`. *Exit:* the bake-off run and its table recorded in the README, no defect fixture reaching match for any reader, at least one configuration meeting the §8 p95 target, production default named with a rationale. |
-| M4 | Reviewer UI | Inbox, single check, determination view, decision dialogs with override warning, persisted minimise, toasts, records page. *Exit:* prototype parity signed off screen by screen. |
-| M5 | Batch pipeline | Pairing with all five buckets, stage/commit, sample batch, job queue with polled progress, verify-all, partial-failure recovery. *Exit:* 25-application batch inside the time budget with one row deliberately missing its image and one ambiguous pair blocking commit; 300-record run inside 10 minutes. |
-| M6 | Deploy and cutover | Tailnet-only app host, front-host `/labelcheck` proxy, systemd units, shared-token access, spend cap verified on the dashboard, encrypted off-box backups, deploy script with health gate and rollback. *Exit:* two reviewers work a real batch on the deployed app end to end. **Done.** |
-| M7 | Hardening | Playwright suite, accessibility audit, load pass at 10 concurrent reviewers, restore rehearsal, runbook and operator guide. *Exit:* runbook followed successfully by someone who did not build the system. **Partial:** the Playwright suite, the axe audit, the runbook and the backup timer are in; the load pass and a rehearsed restore are outstanding. |
+Shipped: the SQLite store with CSV mirror and snapshots, the rules engine, the three readers
+with the benchmark, the reviewer UI, the batch pipeline with polled job progress, the
+tailnet-only deployment with shared-token access, spend cap, encrypted off-box backups and a
+health-gated deploy script, the Playwright and axe suites, and the runbook.
+
+Outstanding:
+
+- Load pass at 10 concurrent reviewers.
+- A rehearsed restore from the nightly backup.
+- A refile link between a returned record and its replacement (§12).
+- The back-label warning question (§12), which may need a second specimen image per record.
 
 ---
 
@@ -774,17 +772,17 @@ whose warning is genuinely on a back label.
 
 ## 13. Appendix: Specimen manifest (ground truth)
 
-The 25 synthetic label photos referenced throughout §7 were produced and are shipped in this
-handoff bundle as `fixtures-manifest.csv`, one row per specimen: `id, filename, brand,
-class_type, alcohol, net_contents, origin, look, treatment, intended_defect`. This is the
+The 25 sample labels referenced throughout §7 are catalogued in `docs/fixtures-manifest.csv`,
+one row per specimen: `id, filename, brand, class_type, alcohol, net_contents, origin, look,
+treatment, scenario`. This is the
 ground truth the seed builder (`api/seed.py`) and the test suite (`test_adjudicate.py`) are
-built from — `intended_defect` states, in prose, exactly what `fixtures/expectations.json`
+built from — `scenario` states, in prose, exactly what `fixtures/expectations.json`
 must encode as the expected field-level and record-level verdict per §3.2's rules. Rows whose
-`intended_defect` is "none — clean reference" are the ≥60% auto-close-eligible set from §1;
-every other row is a deliberately injected defect and must **never** reach `match` on the
+`scenario` is "none — clean reference" are the ≥60% auto-close-eligible set from §1; every
+other row carries a defect and must **never** reach `match` on the
 field it targets (the zero-false-auto-close bar in §1 and §5.4).
 
-| # | Filename | Brand | Class/Type | Alcohol | Net | Origin | Look | Treatment | Intended defect |
+| # | Filename | Brand | Class/Type | Alcohol | Net | Origin | Look | Treatment | Scenario |
 |---|---|---|---|---|---|---|---|---|---|
 | 1 | old-tom-pass.jpg | OLD TOM DISTILLERY | Kentucky Straight Bourbon Whiskey | 45% Alc./Vol. (90 Proof) | 750 mL | — | classic | normal | none — clean reference |
 | 2 | stones-throw-caps.jpg | STONE'S THROW | Kentucky Straight Bourbon Whiskey | 45% Alc./Vol. (90 Proof) | 750 mL | — | industrial | normal | brand rendered in full caps; warning verbatim |
@@ -815,24 +813,23 @@ field it targets (the zero-false-auto-close bar in §1 and §5.4).
 **Distribution:** treatments — angled 2, blurry 2, cropped 1, damaged 1, dark 1, glare 3,
 heavyBlur 1, normal 11, pixelated 3. Looks — band 3, botanical 3, classic 3, crest 4,
 industrial 2, minimal 4, script 3, slate 3. This matches the ≥60%-clean and zero-false-close
-targets in §1 and the look/treatment rotation specified in `label-image-generation-prompt.md`.
+targets in §1 and the look/treatment rotation.
 
-The actual specimen photos (25 image files, filenames as above) are the deliverable of that
-generation prompt and are supplied alongside this PRD in the handoff bundle's `fixtures/`
-folder — copy them there before running `api/seed.py` or `scripts/bench.py`.
+The image files ship in `api/fixtures/`, filenames as above; `api/seed.py` and
+`scripts/bench.py` read them from there.
 
-## 14. Assumptions
+## 14. Constraints
 
-1. **Egress is restricted.** The IT interview described a firewall that broke the previous
-   vendor's ML endpoints. No vision provider is a hard dependency: local OCR plus the rules
+1. **Egress may be restricted.** Some deployment networks block outbound calls to model
+   providers. No vision provider is a hard dependency: local OCR plus the rules
    engine produce a complete verdict with the reader disabled, and the engine string always
    names what read the label.
-2. **Standalone prototype.** No integration with any regulator system, no e-filing, no authorisation boundary
+2. **Standalone service.** No integration with any regulator system, no e-filing, no authorisation boundary
    shared with existing systems.
-3. **Synthetic data only.** All 25 specimens are generated; brands are fictional; no real trade
-   dress is reproduced; no applicant PII exists in the deployment.
+3. **Fictional sample data.** The 25 bundled specimens use fictional brands; no real trade
+   dress is reproduced and no applicant PII ships with the product.
 4. **Provider choice is a configuration, not an architecture.** Swapping vision models is an
    environment change. The production provider is selected from the measured bake-off, not
    asserted in advance.
 5. **Model pricing and rate limits are current as of 19 Aug 2026** and are verified against
-   provider documentation before the cutover at M6.
+   provider documentation before each release.

@@ -21,7 +21,7 @@
   --ink-3: #3c4855;
   --ink-4: #55606e;
   --ink-5: #6a7481;
-  /* PRD §6.2 deviation: the prototype's #78838f measured 3.6-3.9:1 on small
+  /* PRD §6.2 deviation: the token's original #78838f measured 3.6-3.9:1 on small
      secondary text, under AA's 4.5:1. This is the smallest darkening that
      clears AA on every surface it lands on (axe, e2e/a11y.spec.ts). */
   --ink-6: #66707d;

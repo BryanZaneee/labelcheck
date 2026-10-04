@@ -33,7 +33,9 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>) {
 
     const focusable = () =>
       Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-        (el) => !el.hasAttribute('disabled') && el.getAttribute('aria-hidden') !== 'true',
+        (el) => el.tabIndex >= 0 && !el.matches(':disabled') &&
+          !el.closest('[inert], [aria-hidden="true"]') && el.getClientRects().length > 0 &&
+          getComputedStyle(el).visibility !== 'hidden',
       )
 
     const items = focusable()
@@ -49,19 +51,13 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>) {
         panel.focus()
         return
       }
-      const first = current[0]
-      const last = current[current.length - 1]
-      const active = document.activeElement
-      if (!panel.contains(active)) {
-        e.preventDefault()
-        first.focus()
-      } else if (!e.shiftKey && active === last) {
-        e.preventDefault()
-        first.focus()
-      } else if (e.shiftKey && active === first) {
-        e.preventDefault()
-        last.focus()
-      }
+      // Safari's default keyboard settings can skip buttons entirely. Move
+      // focus explicitly on every Tab so the trap works in every browser.
+      e.preventDefault()
+      const index = current.indexOf(document.activeElement as HTMLElement)
+      const next = index < 0 ? (e.shiftKey ? current.length - 1 : 0)
+        : (index + (e.shiftKey ? -1 : 1) + current.length) % current.length
+      current[next].focus()
     }
 
     document.addEventListener('keydown', onKey)

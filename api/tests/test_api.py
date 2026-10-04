@@ -343,8 +343,8 @@ def test_stage_batch_pairs_an_image_and_reports_an_unused_one() -> None:
         "/api/batches/stage",
         headers=ACCESS,
         files=[
-            ("applications_csv", ("apps.csv", SAMPLE_CSV, "text/csv")),
-            ("images", ("old-tom-pass.jpg", _png(), "image/png")),
+            ("applications_csv", ("apps.csv", SAMPLE_CSV.replace(b"old-tom-pass.jpg", b"new-label.png"), "text/csv")),
+            ("images", ("new-label.png", _png(), "image/png")),
             ("images", ("nobody-claims-me.png", _png("blue"), "image/png")),
         ],
     )
@@ -353,7 +353,7 @@ def test_stage_batch_pairs_an_image_and_reports_an_unused_one() -> None:
     assert body["summary"]["matched"] == 1
     assert body["summary"]["unused_images"] == ["nobody-claims-me.png"]
     assert body["blocks_commit"] is False
-    assert body["rows"][0]["image"] == "old-tom-pass.jpg"
+    assert body["rows"][0]["image"] == "new-label.png"
 
 
 def test_a_batch_image_gets_the_same_validation_as_a_single_upload() -> None:
@@ -788,8 +788,8 @@ def test_bulk_verify_survives_an_id_that_does_not_exist() -> None:
     assert sum(job["verdicts"].values()) == 2
 
 
-def test_bulk_verify_rejects_a_job_over_the_demo_cap(monkeypatch: pytest.MonkeyPatch) -> None:
-    """PRD §8 demo cap: a job too big to fan out is rejected up front, before
+def test_bulk_verify_rejects_a_job_over_the_size_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """PRD §8 job-size limit: a job too big to fan out is rejected up front, before
     any reader thread runs, not left to fail mid-batch."""
     import config
 
@@ -800,6 +800,7 @@ def test_bulk_verify_rejects_a_job_over_the_demo_cap(monkeypatch: pytest.MonkeyP
     )
     assert resp.status_code == 413
     assert "3 records" in resp.json()["detail"]
+    assert "limited to 2 records" in resp.json()["detail"]
 
 
 def test_bulk_verify_requires_ids() -> None:
@@ -1261,9 +1262,8 @@ def test_upload_is_rate_limited_per_ip(monkeypatch: pytest.MonkeyPatch) -> None:
     main._hits.clear()
 
 
-def test_rate_limit_is_keyed_on_the_cf_connecting_ip(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Behind Cloudflare -> Caddy every request shares one proxy IP, so the
-    limiter must key on CF-Connecting-IP or every visitor shares one bucket."""
+def test_forged_forwarding_headers_cannot_reset_the_rate_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Raw forwarding headers are attacker-controlled on direct API calls."""
     import main
 
     monkeypatch.setattr(main, "_LIMIT_PER_MINUTE", 1)
@@ -1272,7 +1272,7 @@ def test_rate_limit_is_keyed_on_the_cf_connecting_ip(monkeypatch: pytest.MonkeyP
     def upload(ip: str) -> int:
         return client.post(
             "/api/records",
-            headers={**ACCESS, "CF-Connecting-IP": ip},
+            headers={**ACCESS, "CF-Connecting-IP": ip, "X-Forwarded-For": ip},
             data={
                 "applicant": "Acme",
                 "beverage": "spirits",
@@ -1286,7 +1286,7 @@ def test_rate_limit_is_keyed_on_the_cf_connecting_ip(monkeypatch: pytest.MonkeyP
         ).status_code
 
     assert upload("203.0.113.1") == 201
-    assert upload("203.0.113.2") == 201
+    assert upload("203.0.113.2") == 429
     assert upload("203.0.113.1") == 429
     main._hits.clear()
 

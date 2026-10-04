@@ -1,6 +1,6 @@
 import type { RecordRow, Verdict } from '../api/client'
 
-/** Field labels as the prototype writes them (PRD §3.1, §6.1). */
+/** Field labels as the UI writes them (PRD §3.1, §6.1). */
 export const FIELD_LABEL: Record<string, string> = {
   brand: 'Brand name',
   classType: 'Class / type',
@@ -86,7 +86,7 @@ export function fieldValues(field: { app_value: string | null; label_value: stri
   }
 }
 
-/** Prototype pill vocabulary — verdict is never colour alone (PRD §8). */
+/** Pill vocabulary — verdict is never colour alone (PRD §8). */
 export const PILL_TEXT: Record<string, string> = {
   match: 'Match',
   review: 'Needs review',

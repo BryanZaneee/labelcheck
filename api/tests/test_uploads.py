@@ -5,6 +5,7 @@ every test posted `files={}`, so the write-to-disk branch never ran.
 """
 
 import io
+from pathlib import Path
 
 import pytest
 from PIL import Image
@@ -86,3 +87,39 @@ def test_safe_basename_strips_both_separators() -> None:
     assert uploads.safe_basename("../../etc/passwd") == "passwd"
     assert uploads.safe_basename(r"..\..\windows\evil.png") == "evil.png"
     assert uploads.safe_basename("plain.png") == "plain.png"
+
+
+def test_named_upload_cannot_replace_an_existing_image(tmp_path: Path) -> None:
+    red, blue = uploads.validate(_image(colour="red")), uploads.validate(_image(colour="blue"))
+    uploads.store_named(red, tmp_path, "label.png")
+    uploads.store_named(red, tmp_path, "label.png")
+    with pytest.raises(uploads.UploadError, match="already exists"):
+        uploads.store_named(blue, tmp_path, "label.png")
+    assert (tmp_path / "label.png").read_bytes() == red
+
+
+def test_storage_quota_is_atomic_across_callers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    monkeypatch.setattr(uploads, "MAX_STORED_FILES", 2)
+    clean = uploads.validate(_image())
+
+    def attempt(index: int) -> int:
+        try:
+            uploads.store_named(clean, tmp_path, f"image-{index}.png")
+            return 1
+        except uploads.UploadError:
+            return 0
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        assert sum(pool.map(attempt, range(20))) == 2
+    assert len(list(tmp_path.iterdir())) == 2
+
+
+def test_aggregate_bytes_are_bounded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    clean = uploads.validate(_image())
+    monkeypatch.setattr(uploads, "MAX_STORED_BYTES", len(clean))
+    uploads.store_named(clean, tmp_path, "one.png")
+    with pytest.raises(uploads.UploadError, match="storage is full"):
+        uploads.store_named(clean, tmp_path, "two.png")
+    assert not (tmp_path / "two.png").exists()

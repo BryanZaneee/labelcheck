@@ -207,7 +207,7 @@ A fixture is one image plus its ground truth, and the ground truth is generated,
 not hand-edited:
 
 1. Add a row to `docs/fixtures-manifest.csv` naming the brand, class, values,
-   look, treatment and `intended_defect`. Brands are fictional.
+   look, treatment and `scenario`. Brands are fictional.
 2. Add the matching spec to `ROWS` in `api/scripts/build_fixtures.py`.
 3. Run `cd api && uv run python scripts/build_fixtures.py`. It renders the image
    into `api/fixtures/`, and regenerates `applications.csv` (what the reviewer
@@ -215,5 +215,5 @@ not hand-edited:
    `illegible` and `degraded`). The fake reader replays that JSON.
 4. Run `uv run pytest -q`; `test_readers.py` and `test_api.py` walk every fixture.
 
-Fixtures are synthetic: fictional brands, no real trade dress, no personal data.
+Fixtures use fictional brands; no real trade dress or personal data.
 Keep it that way.

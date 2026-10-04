@@ -243,6 +243,8 @@ def test_a_failed_mirror_write_does_not_wedge_the_writer(monkeypatch: Any) -> No
     monkeypatch.setattr(db, "write_mirror", boom)
     db.schedule_mirror_write()
     # It still propagates - in production that kills only the Timer thread.
+    assert db._mirror_timer is not None
+    db._mirror_timer.cancel()
     with pytest.raises(sqlite3.OperationalError):
         db._flush_mirror()
     assert calls == [1]
@@ -251,6 +253,8 @@ def test_a_failed_mirror_write_does_not_wedge_the_writer(monkeypatch: Any) -> No
     # The writer is still usable, which is the property that was broken.
     monkeypatch.setattr(db, "write_mirror", lambda: calls.append(2))
     db.schedule_mirror_write()
+    assert db._mirror_timer is not None
+    db._mirror_timer.cancel()
     db._flush_mirror()
     assert calls == [1, 2]
 
@@ -260,6 +264,8 @@ def test_a_mutation_during_a_mirror_write_is_not_swallowed() -> None:
     arriving mid-flush re-arms the timer instead of being debounced away."""
     db.schedule_mirror_write()
     assert db._mirror_dirty is True
+    assert db._mirror_timer is not None
+    db._mirror_timer.cancel()
     db._flush_mirror()
     # A mutation landing while the flush ran must leave the flag set again.
     db.schedule_mirror_write()

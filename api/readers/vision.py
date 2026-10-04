@@ -12,8 +12,10 @@ from __future__ import annotations
 import base64
 import json
 import re
-import threading
+import sqlite3
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -46,63 +48,80 @@ class SpendCapReached(ReaderError):
     """The daily paid-call ceiling is spent. Verification degrades to rules."""
 
 
-# In-service backstop behind the provider's own spend limit (PRD §8). The PRD
-# sets it in dollars; counting calls needs no price table and cannot go stale.
-# Persisted to a JSON file so a restart/deploy does not reset the demo's cap.
-# ponytail: one JSON file, one worker; move to SQLite if there's ever more
-# than one process.
-_calls: dict[str, int] = {}
-# Batch verification charges from READER_CONCURRENCY threads, so the
-# read-modify-write below has to be atomic or the cap over-runs.
-_calls_lock = threading.Lock()
-
-
-def _counter_path() -> Path:
-    return Path(settings.data_dir) / "vision_calls.json"
-
-
-def _load_persisted(today: str) -> int:
-    """The on-disk count for `today`, or 0 for a rollover, missing or corrupt file."""
+# SQLite serializes reservations across workers and persists before provider calls.
+@contextmanager
+def _counter() -> Iterator[sqlite3.Connection]:
+    conn = None
     try:
-        data = json.loads(_counter_path().read_text())
-    except (OSError, ValueError):
-        return 0
-    if data.get("date") != today:
-        return 0
-    count = data.get("count", 0)
-    return count if isinstance(count, int) else 0
+        root = Path(settings.data_dir)
+        root.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(root / "vision_calls.sqlite", timeout=5)
+        conn.execute("BEGIN IMMEDIATE")
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS calls (day TEXT PRIMARY KEY, count INTEGER NOT NULL)"
+        )
+        # Preserve the previous JSON counter on the first run after upgrading.
+        if conn.execute("SELECT 1 FROM calls LIMIT 1").fetchone() is None:
+            legacy = root / "vision_calls.json"
+            if legacy.exists():
+                data = json.loads(legacy.read_text())
+                day, count = data["date"], data["count"]
+                if not isinstance(day, str) or type(count) is not int or count < 0:
+                    raise ValueError("invalid legacy counter")
+                conn.execute("INSERT INTO calls VALUES (?, ?)", (day, count))
+        yield conn
+        conn.commit()
+    except (OSError, sqlite3.Error, ValueError, KeyError, TypeError) as exc:
+        raise SpendCapReached("budget tracking unavailable; verification is rules-only") from exc
+    finally:
+        if conn is not None:
+            conn.close()
 
 
-def _save_persisted(today: str, count: int) -> None:
+def _charge_one_call(cap: int, operation: str) -> None:
+    if cap <= 0:
+        raise SpendCapReached("paid verification is disabled")
     try:
-        path = _counter_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({"date": today, "count": count}))
-    except OSError:
-        pass
-
-
-def _charge_one_call(cap: int) -> None:
+        bounds = json.loads(settings.demo_request_cost_bounds)
+        cost = bounds.get(operation)
+        if type(cost) is not int or not 0 < cost <= 500000:
+            raise ValueError("missing cost bound")
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise SpendCapReached("paid verification paused: spending bound is not configured") from exc
     today = datetime.now(UTC).date().isoformat()
-    with _calls_lock:
-        if today not in _calls:
-            _calls[today] = _load_persisted(today)
-        spent = _calls[today]
-        if cap and spent >= cap:
+    with _counter() as conn:
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS spending (day TEXT PRIMARY KEY, used INTEGER NOT NULL CHECK(used BETWEEN 0 AND 500000))"
+        )
+        conn.execute("INSERT INTO spending VALUES (?, 0) ON CONFLICT DO NOTHING", (today,))
+        if not conn.execute(
+            "UPDATE spending SET used = used + ? WHERE day = ? AND used + ? <= 500000",
+            (cost, today, cost),
+        ).rowcount:
+            raise SpendCapReached(
+                "daily demo spending budget exhausted; verification is rules-only"
+            )
+        row = conn.execute("SELECT count FROM calls WHERE day = ?", (today,)).fetchone()
+        spent = row[0] if row else 0
+        if type(spent) is not int or spent < 0:
+            raise ValueError("invalid budget counter")
+        if spent >= cap:
             raise SpendCapReached(
                 f"daily paid-call cap of {cap} reached; verification is rules-only "
                 "until UTC midnight"
             )
-        _calls[today] = spent + 1
-        _save_persisted(today, _calls[today])
+        conn.execute(
+            "INSERT INTO calls VALUES (?, ?) ON CONFLICT(day) DO UPDATE SET count = excluded.count",
+            (today, spent + 1),
+        )
+        conn.execute("DELETE FROM calls WHERE day < ?", (today,))
 
 
 def calls_today() -> int:
     today = datetime.now(UTC).date().isoformat()
-    with _calls_lock:
-        if today not in _calls:
-            _calls[today] = _load_persisted(today)
-        return _calls[today]
+    with _counter() as conn:
+        row = conn.execute("SELECT count FROM calls WHERE day = ?", (today,)).fetchone()
+        return int(row[0]) if row else 0
 
 
 @dataclass
@@ -165,7 +184,7 @@ class VisionReader:
         raise ReaderError(f"{self.provider}/{self.model}: {last}") from last
 
     def _extract(self, encoded_jpeg: str) -> LabelReading:
-        _charge_one_call(self.daily_call_cap)
+        _charge_one_call(self.daily_call_cap, f"{self.provider}:{self.model}")
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[

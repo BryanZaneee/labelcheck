@@ -2,7 +2,7 @@
 from docs/fixtures-manifest.csv.
 
 Ground truth per row is hand-derived by applying PRD §3.2's match/review/fail
-rules to the manifest's `intended_defect` column.
+rules to the manifest's `scenario` column.
 
 Row 6 (vinos-del-sol-abv.jpg) deliberately contradicts its sources. The manifest
 and the PRD §13 appendix both call it "none - clean reference", but the filename

@@ -16,6 +16,8 @@ from PIL import Image, ImageOps
 
 # PRD §8: PNG / JPEG / WebP, 12 MB maximum.
 MAX_BYTES = 12 * 1024 * 1024
+MAX_STORED_BYTES = 256 * 1024 * 1024
+MAX_STORED_FILES = 1000
 
 # Sniffed from the leading bytes; the declared content type is not consulted.
 _SIGNATURES: tuple[tuple[bytes, str], ...] = (
@@ -38,9 +40,7 @@ def sniff(data: bytes) -> str:
         if kind == "webp" and data[8:12] != b"WEBP":
             continue
         return kind
-    raise UploadError(
-        "unsupported image format - upload a PNG, JPEG or WebP file"
-    )
+    raise UploadError("unsupported image format - upload a PNG, JPEG or WebP file")
 
 
 def validate(data: bytes) -> bytes:
@@ -74,6 +74,8 @@ def validate(data: bytes) -> bytes:
         image.convert("RGB").save(buffer, format="JPEG", quality=92)
     clean = buffer.getvalue()
 
+    if len(clean) > MAX_BYTES:
+        raise UploadError("re-encoded image exceeds the maximum size")
     return clean
 
 
@@ -81,9 +83,35 @@ def store(data: bytes, images_dir: Path) -> str:
     """Validate and store one image content-addressed, returning its key."""
     clean = validate(data)
     key = f"{hashlib.sha256(clean).hexdigest()}{_EXTENSION[sniff(clean)]}"
-    images_dir.mkdir(parents=True, exist_ok=True)
-    (images_dir / key).write_bytes(clean)
+    store_named(clean, images_dir, key)
     return key
+
+
+def store_named(clean: bytes, images_dir: Path, name: str) -> None:
+    """Serialize quota checks and refuse replacement of existing image bytes."""
+    import db
+
+    if not name or safe_basename(name) != name or name in {".", ".."}:
+        raise UploadError("invalid image filename")
+    with db.exclusive():
+        images_dir.mkdir(parents=True, exist_ok=True)
+        target = images_dir / name
+        if target.exists():
+            if target.is_file() and target.read_bytes() == clean:
+                return
+            raise UploadError("an image with this filename already exists; rename your upload")
+        files = [p for p in images_dir.iterdir() if p.is_file()]
+        if (
+            len(files) >= MAX_STORED_FILES
+            or sum(p.stat().st_size for p in files) + len(clean) > MAX_STORED_BYTES
+        ):
+            raise UploadError("demo image storage is full")
+        with target.open("xb") as output:
+            try:
+                output.write(clean)
+            except OSError:
+                target.unlink(missing_ok=True)
+                raise
 
 
 def safe_basename(name: str) -> str:

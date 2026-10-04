@@ -343,8 +343,8 @@ def test_stage_batch_pairs_an_image_and_reports_an_unused_one() -> None:
         "/api/batches/stage",
         headers=ACCESS,
         files=[
-            ("applications_csv", ("apps.csv", SAMPLE_CSV, "text/csv")),
-            ("images", ("old-tom-pass.jpg", _png(), "image/png")),
+            ("applications_csv", ("apps.csv", SAMPLE_CSV.replace(b"old-tom-pass.jpg", b"new-label.png"), "text/csv")),
+            ("images", ("new-label.png", _png(), "image/png")),
             ("images", ("nobody-claims-me.png", _png("blue"), "image/png")),
         ],
     )
@@ -353,7 +353,7 @@ def test_stage_batch_pairs_an_image_and_reports_an_unused_one() -> None:
     assert body["summary"]["matched"] == 1
     assert body["summary"]["unused_images"] == ["nobody-claims-me.png"]
     assert body["blocks_commit"] is False
-    assert body["rows"][0]["image"] == "old-tom-pass.jpg"
+    assert body["rows"][0]["image"] == "new-label.png"
 
 
 def test_a_batch_image_gets_the_same_validation_as_a_single_upload() -> None:

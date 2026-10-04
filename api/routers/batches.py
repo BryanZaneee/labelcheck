@@ -23,6 +23,7 @@ from batching import BatchCsvError
 
 router = APIRouter(tags=["batches"])
 
+
 class StagedRow(BaseModel):
     row: int
     applicant: str
@@ -141,14 +142,8 @@ def _write_image(image: UploadFile) -> str | None:
     name = uploads.safe_basename(image.filename or "")
     if not name:
         return None
-    # ponytail: keeping the name means an upload can replace a same-named image
-    # in data/images; the route is access-token gated, so that is a trusted-user
-    # footgun, not an attack. Per-batch subdirectories if it ever stops being one.
-    # Read one byte past the cap so an oversized upload is refused, not buffered.
     clean = uploads.validate(image.file.read(uploads.MAX_BYTES + 1))
-    images_dir = db.data_dir() / "images"
-    images_dir.mkdir(parents=True, exist_ok=True)
-    (images_dir / name).write_bytes(clean)
+    uploads.store_named(clean, db.data_dir() / "images", name)
     return name
 
 
@@ -158,7 +153,12 @@ def stage_batch(
     images: list[UploadFile] = File(default=[]),
 ) -> StagedBatch:
     try:
-        rows = batching.parse_csv(applications_csv.file.read())
+        data = applications_csv.file.read(1024 * 1024 + 1)
+        if len(data) > 1024 * 1024 or len(images) > 100:
+            raise BatchCsvError("batch exceeds the 1 MB CSV or 100 image limit")
+        rows = batching.parse_csv(data)
+        if len(rows) > 300:
+            raise BatchCsvError("batch exceeds the 300 row limit")
     except BatchCsvError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

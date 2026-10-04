@@ -82,17 +82,15 @@ def test_daily_call_cap_stops_paid_requests_and_does_not_retry() -> None:
     breach must not be retried - it cannot clear inside the retry window."""
     from readers import vision
 
-    vision._calls.clear()
     reader = VisionReader(provider="openai", model="m", api_key="k", daily_call_cap=2)
     vision._charge_one_call(2)
     vision._charge_one_call(2)
     assert vision.calls_today() == 2
     with pytest.raises(vision.SpendCapReached):
         vision._charge_one_call(2)
-    # A zero cap disables the backstop entirely.
-    vision._charge_one_call(0)
+    with pytest.raises(vision.SpendCapReached):
+        vision._charge_one_call(0)
     assert reader.daily_call_cap == 2
-    vision._calls.clear()
 
 
 def test_the_daily_call_count_survives_a_restart(
@@ -104,17 +102,13 @@ def test_the_daily_call_count_survives_a_restart(
     from readers import vision
 
     monkeypatch.setattr(config.settings, "data_dir", str(tmp_path))
-    vision._calls.clear()
 
-    vision._charge_one_call(0)
-    vision._charge_one_call(0)
+    vision._charge_one_call(2)
+    vision._charge_one_call(2)
     assert vision.calls_today() == 2
 
-    # Simulate a restart: the in-memory dict is gone, only the file remains.
-    vision._calls.clear()
+    # Every read opens a new connection: no process-local counter survives.
     assert vision.calls_today() == 2
-
-    vision._calls.clear()
 
 
 def test_a_reader_cannot_express_a_verdict() -> None:
@@ -150,3 +144,69 @@ def test_the_ocr_warning_body_stops_at_the_statement() -> None:
     assert reading.body is not None
     assert warning_body(reading.body) == warning_body(STATUTORY_WARNING)
     assert "750 ML" not in reading.body
+
+
+@pytest.mark.parametrize("failure", ["corrupt", "unwritable"])
+def test_budget_storage_failure_prevents_provider_call(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, failure: str
+) -> None:
+    from unittest.mock import Mock
+
+    import config
+    from readers import vision
+
+    if failure == "unwritable":
+        (tmp_path / "blocked").write_text("not a directory")
+        monkeypatch.setattr(config.settings, "data_dir", str(tmp_path / "blocked"))
+    else:
+        monkeypatch.setattr(config.settings, "data_dir", str(tmp_path))
+        (tmp_path / "vision_calls.json").write_text("broken")
+    reader = VisionReader(provider="openai", model="m", api_key="k", daily_call_cap=2)
+    request = Mock()
+    monkeypatch.setattr(reader.client.chat.completions, "create", request)
+    with pytest.raises(vision.SpendCapReached):
+        reader._extract("image")
+    request.assert_not_called()
+
+
+def test_concurrent_reservations_share_durable_limit(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    import config
+    from readers import vision
+
+    monkeypatch.setattr(config.settings, "data_dir", str(tmp_path))
+
+    def attempt(_: int) -> int:
+        try:
+            vision._charge_one_call(3)
+            return 1
+        except vision.SpendCapReached:
+            return 0
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        assert sum(pool.map(attempt, range(20))) == 3
+    assert vision.calls_today() == 3
+
+
+def test_legacy_counter_is_preserved(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    import json
+    from datetime import UTC, datetime
+
+    import config
+    from readers import vision
+
+    monkeypatch.setattr(config.settings, "data_dir", str(tmp_path))
+    (tmp_path / "vision_calls.json").write_text(
+        json.dumps(
+            {
+                "date": datetime.now(UTC).date().isoformat(),
+                "count": 3,
+            }
+        )
+    )
+    with pytest.raises(vision.SpendCapReached):
+        vision._charge_one_call(3)
+    assert vision.calls_today() == 3

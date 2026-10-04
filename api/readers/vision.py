@@ -78,11 +78,29 @@ def _counter() -> Iterator[sqlite3.Connection]:
             conn.close()
 
 
-def _charge_one_call(cap: int) -> None:
+def _charge_one_call(cap: int, operation: str) -> None:
     if cap <= 0:
         raise SpendCapReached("paid verification is disabled")
+    try:
+        bounds = json.loads(settings.demo_request_cost_bounds)
+        cost = bounds.get(operation)
+        if type(cost) is not int or not 0 < cost <= 500000:
+            raise ValueError("missing cost bound")
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise SpendCapReached("paid verification paused: spending bound is not configured") from exc
     today = datetime.now(UTC).date().isoformat()
     with _counter() as conn:
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS spending (day TEXT PRIMARY KEY, used INTEGER NOT NULL CHECK(used BETWEEN 0 AND 500000))"
+        )
+        conn.execute("INSERT INTO spending VALUES (?, 0) ON CONFLICT DO NOTHING", (today,))
+        if not conn.execute(
+            "UPDATE spending SET used = used + ? WHERE day = ? AND used + ? <= 500000",
+            (cost, today, cost),
+        ).rowcount:
+            raise SpendCapReached(
+                "daily demo spending budget exhausted; verification is rules-only"
+            )
         row = conn.execute("SELECT count FROM calls WHERE day = ?", (today,)).fetchone()
         spent = row[0] if row else 0
         if type(spent) is not int or spent < 0:
@@ -166,7 +184,7 @@ class VisionReader:
         raise ReaderError(f"{self.provider}/{self.model}: {last}") from last
 
     def _extract(self, encoded_jpeg: str) -> LabelReading:
-        _charge_one_call(self.daily_call_cap)
+        _charge_one_call(self.daily_call_cap, f"{self.provider}:{self.model}")
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[

@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     reader_concurrency: int = 10
     # Paid calls per UTC day, enforced in the reader layer; 0 disables it.
     daily_vision_call_cap: int = 300
+    # Reviewed worst-case microdollars per provider:model; absent means paused.
+    demo_request_cost_bounds: str = "{}"
     # Records a single POST /api/jobs can fan out to verify (PRD §8 job limit).
     max_job_records: int = 25
 

@@ -17,6 +17,13 @@ from readers.ocr import OcrReader
 from readers.vision import VisionReader, clamp_effort
 
 
+@pytest.fixture(autouse=True)
+def paid_test_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
+    from config import settings
+
+    monkeypatch.setattr(settings, "demo_request_cost_bounds", '{"test":1000,"openai:m":1000}')
+
+
 def _reader(provider: str, model: str = "m", effort: str = "low") -> VisionReader:
     return VisionReader(provider=provider, model=model, api_key="test-key", effort=effort)
 
@@ -83,13 +90,13 @@ def test_daily_call_cap_stops_paid_requests_and_does_not_retry() -> None:
     from readers import vision
 
     reader = VisionReader(provider="openai", model="m", api_key="k", daily_call_cap=2)
-    vision._charge_one_call(2)
-    vision._charge_one_call(2)
+    vision._charge_one_call(2, "test")
+    vision._charge_one_call(2, "test")
     assert vision.calls_today() == 2
     with pytest.raises(vision.SpendCapReached):
-        vision._charge_one_call(2)
+        vision._charge_one_call(2, "test")
     with pytest.raises(vision.SpendCapReached):
-        vision._charge_one_call(0)
+        vision._charge_one_call(0, "test")
     assert reader.daily_call_cap == 2
 
 
@@ -103,8 +110,8 @@ def test_the_daily_call_count_survives_a_restart(
 
     monkeypatch.setattr(config.settings, "data_dir", str(tmp_path))
 
-    vision._charge_one_call(2)
-    vision._charge_one_call(2)
+    vision._charge_one_call(2, "test")
+    vision._charge_one_call(2, "test")
     assert vision.calls_today() == 2
 
     # Every read opens a new connection: no process-local counter survives.
@@ -181,7 +188,7 @@ def test_concurrent_reservations_share_durable_limit(
 
     def attempt(_: int) -> int:
         try:
-            vision._charge_one_call(3)
+            vision._charge_one_call(3, "test")
             return 1
         except vision.SpendCapReached:
             return 0
@@ -208,5 +215,32 @@ def test_legacy_counter_is_preserved(monkeypatch: pytest.MonkeyPatch, tmp_path: 
         )
     )
     with pytest.raises(vision.SpendCapReached):
-        vision._charge_one_call(3)
+        vision._charge_one_call(3, "test")
     assert vision.calls_today() == 3
+
+
+def test_paid_limit_is_shared_by_models(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from config import settings
+    from readers import vision
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    monkeypatch.setattr(settings, "demo_request_cost_bounds", '{"a":300000,"b":300000}')
+    vision._charge_one_call(100, "a")
+    with pytest.raises(vision.SpendCapReached, match="spending budget"):
+        vision._charge_one_call(100, "b")
+    assert vision.calls_today() == 1
+
+
+def test_unconfigured_price_never_calls_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    from unittest.mock import Mock
+
+    from config import settings
+    from readers import vision
+
+    monkeypatch.setattr(settings, "demo_request_cost_bounds", "{}")
+    reader = VisionReader(provider="openai", model="m", api_key="k", daily_call_cap=2)
+    request = Mock()
+    monkeypatch.setattr(reader.client.chat.completions, "create", request)
+    with pytest.raises(vision.SpendCapReached, match="spending bound"):
+        reader._extract("image")
+    request.assert_not_called()
